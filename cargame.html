@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Araba Oyunu - Gelişmiş</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+    }
+    canvas {
+      display: block;
+    }
+    #controls {
+      display: none;
+      position: fixed;
+      bottom: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+    }
+    .button {
+      width: 60px;
+      height: 60px;
+      margin: 0 10px;
+      background-color: lightgray;
+      border-radius: 50%;
+      text-align: center;
+      line-height: 60px;
+      font-size: 20px;
+      font-weight: bold;
+      user-select: none;
+      cursor: pointer;
+    }
+    .button:active {
+      background-color: gray;
+    }
+    #pause {
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      width: 80px;
+      height: 40px;
+      background-color: lightgray;
+      border: none;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      z-index: 10;
+    }
+    #pause:active {
+      background-color: gray;
+    }
+    #scoreboard {
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      background-color: white;
+      padding: 10px;
+      border-radius: 5px;
+      font-size: 18px;
+      z-index: 10;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="oyunCanvas"></canvas>
+  <button id="pause">Pause</button>
+  <div id="scoreboard">Skor: 0</div>
+  <div id="controls">
+    <div class="button" id="left">←</div>
+    <div class="button" id="right">→</div>
+  </div>
+  <script>
+    const canvas = document.getElementById("oyunCanvas");
+    const ctx = canvas.getContext("2d");
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    const pauseButton = document.getElementById("pause");
+    const scoreboard = document.getElementById("scoreboard");
+    const controls = document.getElementById("controls");
+
+    if ("ontouchstart" in window) {
+      controls.style.display = "flex";
+    }
+
+    let araba = { x: canvas.width / 2 - 25, y: canvas.height - 150, width: 50, height: 100, color: "blue", speed: 5 };
+    let obstacles = [];
+    let score = 0;
+    let highScore = localStorage.getItem("highScore") || 0;
+    let direction = 0; // -1: sola, 1: sağa, 0: duruyor
+    let isPaused = false;
+
+    function drawAraba() {
+      ctx.fillStyle = araba.color;
+      ctx.fillRect(araba.x, araba.y, araba.width, araba.height);
+    }
+
+    function drawObstacles() {
+      obstacles.forEach(obstacle => {
+        ctx.fillStyle = obstacle.color;
+        ctx.fillRect(obstacle.x, obstacle.y, obstacle.width, obstacle.height);
+      });
+    }
+
+    function updateObstacles() {
+      obstacles.forEach(obstacle => {
+        obstacle.y += 3; // Engel düşme hızı
+      });
+
+      if (Math.random() < 0.02) {
+        obstacles.push({
+          x: Math.random() * (canvas.width - 50),
+          y: -50,
+          width: 50,
+          height: 50,
+          color: "red"
+        });
+      }
+
+      obstacles = obstacles.filter(obstacle => obstacle.y < canvas.height);
+    }
+
+    function detectCollision() {
+      obstacles.forEach(obstacle => {
+        if (
+          araba.x < obstacle.x + obstacle.width &&
+          araba.x + araba.width > obstacle.x &&
+          araba.y < obstacle.y + obstacle.height &&
+          araba.y + araba.height > obstacle.y
+        ) {
+          endGame();
+        }
+      });
+    }
+
+    function updateScore() {
+      score++;
+      scoreboard.textContent = `Skor: ${score}`;
+    }
+
+    function endGame() {
+      if (score > highScore) {
+        highScore = score;
+        localStorage.setItem("highScore", highScore);
+      }
+      alert(`Oyun Bitti! Skor: ${score}\nEn Yüksek Skor: ${highScore}`);
+      resetGame();
+    }
+
+    function resetGame() {
+      score = 0;
+      obstacles = [];
+      araba.x = canvas.width / 2 - 25;
+      countdown(3, startGame);
+    }
+
+    function countdown(seconds, callback) {
+      let count = seconds;
+      const interval = setInterval(() => {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.font = "40px Arial";
+        ctx.fillStyle = "black";
+        ctx.textAlign = "center";
+        ctx.fillText(count, canvas.width / 2, canvas.height / 2);
+        count--;
+        if (count < 0) {
+          clearInterval(interval);
+          callback();
+        }
+      }, 1000);
+    }
+
+    function startGame() {
+      isPaused = false;
+      gameLoop();
+    }
+
+    function togglePause() {
+      isPaused = !isPaused;
+      if (!isPaused) gameLoop();
+    }
+
+    function gameLoop() {
+      if (isPaused) return;
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawAraba();
+      drawObstacles();
+      updateObstacles();
+      detectCollision();
+      updateScore();
+
+      araba.x += direction * araba.speed;
+      if (araba.x < 0) araba.x = 0;
+      if (araba.x > canvas.width - araba.width) araba.x = canvas.width - araba.width;
+
+      requestAnimationFrame(gameLoop);
+    }
+
+    window.addEventListener("keydown", e => {
+      if (e.key === "ArrowLeft") direction = -1;
+      if (e.key === "ArrowRight") direction = 1;
+    });
+
+    window.addEventListener("keyup", e => {
+      if (e.key === "ArrowLeft" || e.key === "ArrowRight") direction = 0;
+    });
+
+    document.getElementById("left").addEventListener("touchstart", () => direction = -1);
+    document.getElementById("left").addEventListener("touchend", () => direction = 0);
+    document.getElementById("right").addEventListener("touchstart", () => direction = 1);
+    document.getElementById("right").addEventListener("touchend", () => direction = 0);
+
+    pauseButton.addEventListener("click", togglePause);
+
+    countdown(3, startGame);
+  </script>
+</body>
+</html>
